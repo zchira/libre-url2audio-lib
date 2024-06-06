@@ -1,9 +1,9 @@
 use std::thread::sleep;
-use crate::player::Player;
+
+use libre_url2audio_lib::Player;
 
 mod url_source;
 mod player_engine;
-mod player;
 mod pulseaudio;
 
 fn main()   {
