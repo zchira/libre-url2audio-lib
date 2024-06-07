@@ -14,6 +14,7 @@ fn main()   {
     let res = p.open(src);
     println!("Res: {:#?}", res);
 
+
     println!("duration: {}", p.duration());
     sleep(std::time::Duration::from_secs(3));
     println!("Paused at: {}", p.current_position());
@@ -22,6 +23,7 @@ fn main()   {
     sleep(std::time::Duration::from_secs(3));
     p.play();
     println!("Resume at: {}", p.current_position());
+
 
     sleep(std::time::Duration::from_secs(3));
     p.seek(600.0);
