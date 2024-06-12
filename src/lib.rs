@@ -110,4 +110,6 @@ impl Player {
         self.state.read().unwrap().duration
     }
 
+    
+
 }
