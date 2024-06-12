@@ -15,14 +15,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v2
-    - name: Install stable toolchain
-      uses: actions-rs/toolchain@v1
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
       with:
-        profile: minimal
-        toolchain: stable
-        override: true--verbose
-    - run: cargo publish --token &{CRATES_TOKEN}
-      env:
-        CRRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+          toolchain: stable
+          override: true
+    - uses: katyo/publish-crates@v2
+      with:
+          registry-token: ${{ secrets.CRATES_TOKEN }}
+          ignore-unpublished-changes: true
