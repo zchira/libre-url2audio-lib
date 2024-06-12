@@ -55,9 +55,7 @@ impl PulseAudioOutput {
 
         match pa_result {
             Ok(pa) => Ok(Box::new(PulseAudioOutput { pa, sample_buf })),
-            Err(err) => {
-                println!("audio output stream open error: {}", err);
-
+            Err(_err) => {
                 Err(AudioOutputError::OpenStreamError)
             }
         }
@@ -76,9 +74,7 @@ impl AudioOutput for PulseAudioOutput {
 
         // Write interleaved samples to PulseAudio.
         match self.pa.write(self.sample_buf.as_bytes()) {
-            Err(err) => {
-                println!("audio output stream write error: {}", err);
-
+            Err(_err) => {
                 Err(AudioOutputError::StreamClosedError)
             }
             _ => Ok(()),

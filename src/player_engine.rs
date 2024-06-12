@@ -135,7 +135,6 @@ impl PlayerEngine {
         let result = loop {
             let action = match rx.try_recv() {
                 Ok(a) => {
-                    println!("Action recv: {:#?}", a);
                     Some(a)
                 },
                 Err(_e) => {
@@ -217,7 +216,6 @@ impl PlayerEngine {
                                 let ts: Time = t.clone().into(); // packet.ts() + 30;
                                 if let Some(reader) = self.reader.as_mut() {
                                     let r = reader.seek(SeekMode::Accurate, SeekTo::Time{ time: ts, track_id: Some(0) });
-                                    println!("Seek result: {:#?}", r);
                                 }
                             },
                             _ => {}
