@@ -11,40 +11,53 @@ use crate::player_engine::{PlayerActions, PlayerEngine, PlayerState, PlayerStatu
 pub struct Player {
     inner_player: Arc<RwLock<PlayerEngine>>,
     tx: Sender<PlayerActions>,
+    rx: Receiver<PlayerActions>,
     rx_status: Receiver<PlayerStatus>,
-    state: Arc<RwLock<PlayerState>>
+    tx_status: Sender<PlayerStatus>,
+    state: Arc<RwLock<PlayerState>>,
 }
 
 impl Player {
     pub fn new() -> Self {
         let (tx, rx) = unbounded(); 
         let (tx_status, rx_status) = unbounded(); 
-        Player {
+        let mut to_ret = Player {
             inner_player: Arc::new(
                               RwLock::new(
                                   PlayerEngine::new(
-                                      // tx.clone(),
+                                      tx.clone(),
                                       rx.clone(),
                                       tx_status.clone(),
                                       // rx_status.clone()
                                       ))),
             tx,
+            rx,
             rx_status,
+            tx_status,
             state: Arc::new(RwLock::new(PlayerState {
                 playing: true,
                 duration: 0.0,
                 position: 0.0,
             }))
-        }
+        };
+        to_ret.inner_thread();
+        to_ret
+
+    }
+    
+    pub fn open(&mut self, src: &str) {
+        let _ = self.tx.send(PlayerActions::Open(src.to_string()));
+
     }
 
-    pub fn open(&self, src: &str) {
+    pub fn inner_thread(&mut self) {
         let player = self.inner_player.clone();
-        let path = src.to_string();
 
+        // let _ = self.tx.send(PlayerActions::Close);
         let _ = std::thread::spawn(move || {
             let mut p = player.write().unwrap();
-            let _result = p.open(&path);
+            let result = p.start(); //(&path);
+            println!("Res: {:#?}", result);
         });
 
         let rx1 = self.rx_status.clone();
@@ -73,9 +86,6 @@ impl Player {
                 }
             }
         });
-    }
-
-    pub fn close(&self) {
     }
 
     pub fn play(&self) {

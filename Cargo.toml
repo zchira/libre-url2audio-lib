@@ -1,6 +1,6 @@
 [package]
 name = "libre-url2audio-lib"
-version = "0.1.2"
+version = "0.1.4"
 authors = ["zchira"]
 license = "GPL-3.0"
 description = "simple-to-use lib for playing audio streams"
