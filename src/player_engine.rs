@@ -161,7 +161,7 @@ impl PlayerEngine {
                 }
             } else {
                 break Err(symphonia::core::errors::Error::IoError(
-                    std::io::Error::new(std::io::ErrorKind::Other, "")));
+                        std::io::Error::new(std::io::ErrorKind::Other, "")));
             };
 
             if packet.track_id() != track_id {
@@ -169,56 +169,57 @@ impl PlayerEngine {
             }
 
             if let Some(ref mut decoder) = decoder {
-            match decoder.decode(&packet) {
-                Ok(decoded) => {
-                    if audio_output.is_none() {
-                        let spec = *decoded.spec();
-                        let duration = decoded.capacity() as u64;
-                        audio_output.replace(try_open(spec, duration).unwrap());
-                    } else {
-                        // TODO: Check the audio spec. and duration hasn't changed.
-                    }
+                match decoder.decode(&packet) {
+                    Ok(decoded) => {
+                        if audio_output.is_none() {
+                            let spec = *decoded.spec();
+                            let duration = decoded.capacity() as u64;
+                            audio_output.replace(try_open(spec, duration).unwrap());
+                        } else {
+                            // TODO: Check the audio spec. and duration hasn't changed.
+                        }
 
-                    let ts = packet.ts();
-                    let (position, duration) = update_progress(ts, dur, tb);
-                    {
-                        let _ = self.tx_status.send(PlayerStatus::SendDuration(duration));
-                        let _ = self.tx_status.send(PlayerStatus::SendPosition(position));
-                    }
+                        let ts = packet.ts();
+                        let (position, duration) = update_progress(ts, dur, tb);
+                        {
+                            let _ = self.tx_status.send(PlayerStatus::SendDuration(duration));
+                            let _ = self.tx_status.send(PlayerStatus::SendPosition(position));
+                        }
 
-                    if let Some(ref mut audio_output) = audio_output {
-                        audio_output.write(decoded).unwrap()
-                    }
+                        if let Some(ref mut audio_output) = audio_output {
+                            audio_output.write(decoded).unwrap()
+                        }
 
-                    let a = action.clone();
-                    if a.is_some() {
-                        let a = a.as_ref().unwrap();
-                        match a {
-                            PlayerActions::Seek(ref t) => {
-                                let ts: Time = t.clone().into(); // packet.ts() + 30;
-                                if let Some(reader) = self.reader.as_mut() {
-                                    let r = reader.seek(
-                                        SeekMode::Accurate,
-                                        SeekTo::Time {
-                                            time: ts,
-                                            track_id: Some(0),
-                                        },
-                                    );
+                        let a = action.clone();
+                        if a.is_some() {
+                            let a = a.as_ref().unwrap();
+                            match a {
+                                PlayerActions::Seek(ref t) => {
+                                    let ts: Time = t.clone().into(); // packet.ts() + 30;
+                                    if let Some(reader) = self.reader.as_mut() {
+                                        let r = reader.seek(
+                                            SeekMode::Accurate,
+                                            SeekTo::Time {
+                                                time: ts,
+                                                track_id: Some(0),
+                                            },
+                                        );
+                                    }
                                 }
+                                _ => {}
                             }
-                            _ => {}
                         }
                     }
-                }
 
-                Err(Error::DecodeError(err)) => {
-                    // Decode errors are not fatal. Print the error message and try to decode the next
-                    // packet as usual.
-                    println!("decode error: {}", err);
-                }
-                Err(err) => break Err(err),
-            };
+                    Err(Error::DecodeError(err)) => {
+                        // Decode errors are not fatal. Print the error message and try to decode the next
+                        // packet as usual.
+                        println!("decode error: {}", err);
+                    }
+                    Err(err) => break Err(err),
+                };
             }
+            sleep(std::time::Duration::from_millis(20));
             ////
         };
         result
@@ -249,197 +250,6 @@ impl PlayerEngine {
             }
         }
     }
-
-    // pub fn play(&mut self) -> Result<i32> {
-    //     if self.reader.is_some() {
-    //         let track = None;
-    //         let decode_opts = Default::default();
-    //         self.start_playing(track, &decode_opts)
-    //     } else {
-    //         Err(symphonia::core::errors::Error::IoError(
-    //             std::io::Error::new(std::io::ErrorKind::Other, "reader is None"),
-    //         ))
-    //     }
-    // }
-
-    // fn start_playing(&mut self, track_num: Option<usize>, decode_opts: &DecoderOptions) -> Result<i32> {
-    //     if let Some(reader) = self.reader.as_mut() {
-    //         let track = track_num
-    //             .and_then(|t| reader.tracks().get(t))
-    //             .or_else(|| first_supported_track(reader.tracks()));
-    //
-    //         let track_id = track.unwrap().id;
-    //         let mut audio_output = None;
-    //         let result = self.play_track(&mut audio_output, track_id, decode_opts);
-    //
-    //         // Flush the audio output to finish playing back any leftover samples.
-    //         if let Some(audio_output) = audio_output.as_mut() {
-    //             audio_output.flush()
-    //         }
-    //         result
-    //     } else {
-    //         Ok(0)
-    //     }
-    // }
-
-    fn play_track(
-        &mut self,
-        audio_output: &mut Option<Box<dyn AudioOutput>>,
-        track_id: u32,
-        decode_opts: &DecoderOptions,
-    ) -> Result<i32> {
-        let rx = self.rx.clone();
-        let (tb, dur, mut decoder) = if let Some(r) = self.reader.as_mut() {
-            let track = match r.tracks().iter().find(|track| track.id == track_id) {
-                Some(track) => track,
-                _ => return Ok(0),
-            };
-
-            // Create a decoder for the track.
-            let decoder =
-                symphonia::default::get_codecs().make(&track.codec_params, decode_opts)?;
-
-            // Get the selected track's timebase and duration.
-            let tb = track.codec_params.time_base;
-            let dur = track
-                .codec_params
-                .n_frames
-                .map(|frames| track.codec_params.start_ts + frames);
-            (tb, dur, decoder)
-        } else {
-            return Err(symphonia::core::errors::Error::IoError(
-                std::io::Error::new(std::io::ErrorKind::Other, ""),
-            ));
-        };
-
-        let mut playing = true;
-        // Decode and play the packets belonging to the selected track.
-        let result = loop {
-            if self.initiate_drop {
-                println!("initiate drop");
-                // let _s = self.tx_status.send(PlayerStatus::SendPlaying(false));
-                self.reader = None;
-                self.src = None;
-                break Ok(());
-            }
-
-            let action = match rx.try_recv() {
-                Ok(a) => {
-                    Some(a)
-                }
-                Err(_e) => None,
-            };
-
-            let a = action.clone();
-            if a.is_some() && (a.unwrap() == PlayerActions::Pause) {
-                playing = false;
-                let s = self.tx_status.send(PlayerStatus::SendPlaying(false));
-            }
-
-            let a = action.clone();
-            if a.is_some() && (a.unwrap() == PlayerActions::Resume) {
-                playing = true;
-                let s = self.tx_status.send(PlayerStatus::SendPlaying(true));
-            }
-
-            {
-                if !playing {
-                    sleep(std::time::Duration::from_millis(200));
-                    continue;
-                }
-            }
-
-            // Get the next packet from the format reader.
-            let packet = if let Some(reader) = self.reader.as_mut() {
-                match reader.next_packet() {
-                    Ok(packet) => packet,
-                    Err(err) => break Err(err),
-                }
-            } else {
-                return Err(symphonia::core::errors::Error::IoError(
-                    std::io::Error::new(std::io::ErrorKind::Other, ""),
-                ));
-            };
-
-            // If the packet does not belong to the selected track, skip it.
-            if packet.track_id() != track_id {
-                continue;
-            }
-
-            // Decode the packet into audio samples.
-            match decoder.decode(&packet) {
-                Ok(decoded) => {
-                    // If the audio output is not open, try to open it.
-                    if audio_output.is_none() {
-                        // Get the audio buffer specification. This is a description of the decoded
-                        // audio buffer's sample format and sample rate.
-                        let spec = *decoded.spec();
-
-                        // Get the capacity of the decoded buffer. Note that this is capacity, not
-                        // length! The capacity of the decoded buffer is constant for the life of the
-                        // decoder, but the length is not.
-                        let duration = decoded.capacity() as u64;
-
-                        // Try to open the audio output.
-                        audio_output.replace(try_open(spec, duration).unwrap());
-                    } else {
-                        // TODO: Check the audio spec. and duration hasn't changed.
-                    }
-
-                    let ts = packet.ts();
-                    let (position, duration) = update_progress(ts, dur, tb);
-                    {
-                        let _ = self.tx_status.send(PlayerStatus::SendDuration(duration));
-                        let _ = self.tx_status.send(PlayerStatus::SendPosition(position));
-                    }
-
-                    if let Some(audio_output) = audio_output {
-                        audio_output.write(decoded).unwrap()
-                    }
-
-                    let a = action.clone();
-                    if a.is_some() {
-                        let a = a.as_ref().unwrap();
-                        match a {
-                            PlayerActions::Seek(ref t) => {
-                                let ts: Time = t.clone().into(); // packet.ts() + 30;
-                                if let Some(reader) = self.reader.as_mut() {
-                                    let r = reader.seek(
-                                        SeekMode::Accurate,
-                                        SeekTo::Time {
-                                            time: ts,
-                                            track_id: Some(0),
-                                        },
-                                    );
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-
-                Err(Error::DecodeError(err)) => {
-                    // Decode errors are not fatal. Print the error message and try to decode the next
-                    // packet as usual.
-                    println!("decode error: {}", err);
-                }
-                Err(err) => break Err(err),
-            }
-        };
-        println!("Exit loop");
-
-        // Return if a fatal error occured.
-        ignore_end_of_stream_error(result)?;
-        Ok(0)
-    }
-
-    // pub fn position_display(&self) -> String {
-    //     let position = self.state.read().unwrap().position;
-    //     let hours = position / (60.0 * 60.0);
-    //     let mins = (position as u64 % (60 * 60)) / 60;
-    //     let secs = (position as u64 % 60) as f64 + (position - (position as u64) as f64);
-    //     format!("{}:{:0>2}:{:0>4.1}", hours, mins, secs)
-    // }
 
     fn print_progress(
         &mut self,
