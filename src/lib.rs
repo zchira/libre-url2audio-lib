@@ -2,7 +2,7 @@ mod url_source;
 mod player_engine;
 mod pulseaudio;
 
-use std::sync::{Arc, RwLock};
+use std::{sync::{Arc, RwLock}, thread::sleep, time::Duration};
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 
@@ -84,6 +84,7 @@ impl Player {
                     Err(_) => { 
                     },
                 }
+                sleep(Duration::from_millis(50));
             }
         });
     }

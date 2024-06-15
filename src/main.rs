@@ -17,7 +17,7 @@ fn main()   {
 
 
     println!("duration: {}", p.duration());
-    sleep(std::time::Duration::from_secs(3));
+    sleep(std::time::Duration::from_secs(10));
     println!("Paused at: {}", p.current_position());
     p.pause();
 
