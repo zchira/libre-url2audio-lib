@@ -1,6 +1,8 @@
 mod url_source;
 mod player_engine;
 mod pulseaudio;
+mod cpalaudio;
+
 
 use std::{sync::{Arc, RwLock}, thread::sleep, time::Duration};
 
