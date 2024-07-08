@@ -6,6 +6,10 @@
 [Docs Badge]: https://img.shields.io/docsrs/libre-url2audio-lib?logo=rust&style=flat-square
 [Docs]: https://docs.rs/libre-url2audio-lib/
 
+# deprecation 
+
+Moved here: https://github.com/zchira/url2audio
+
 
 # libre-url2audio-lib
 
